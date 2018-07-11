@@ -12,21 +12,19 @@ while getopts d:m:s:w: option
 do
 case "${option}"
 in
-d) DIST_DIFF=${OPTARG};;
 m) MAVEN_ZIP=${OPTARG};;
 s) STANDALONE_ZIP=${OPTARG};;
 w) WORKSPACE=${OPTARG};;
 esac
 done
 
-DIST_DIFF="${DIST_DIFF:-dist-diff2-0.9.1-jar-with-dependencies.jar}"
 WORKSPACE="${WORKSPACE:-/tmp/standalone_embedded_diff}"
 
 if [ "$STANDALONE_ZIP" == "" ] || [ "$MAVEN_ZIP" == "" ]; then
   echo "This script looks for differences between standalone and embedded tomcats."
   echo
   echo "Usage:"
-  echo "     sh standalone_embedded_diff.sh -s <tomcat standalone zip> -m <maven repo zip> [-d <dist_diff>] [-w <workspace_dir>]"
+  echo "     sh standalone_embedded_diff.sh -s <tomcat standalone zip> -m <maven repo zip> [-w <workspace_dir>]"
   exit 1
 fi
 
