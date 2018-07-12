@@ -202,27 +202,33 @@ echo '  </testcase>' >> $f
 echo '  <testcase name="Repo Missing Packages" time="0">' >> $f
 
 if [[ ${#REPO_MISSING[@]} > 0 ]]; then
-for missing in ${!REPO_MISSING[@]}; do
-  echo '    <error type="'$missing ${REPO_MISSING[$missing]#*$a_dir}'"/>' >> $f
-done
+  echo '    <failure message="Maven repository archive does not contain some packages from standalone archive">' >> $f
+  for missing in ${!REPO_MISSING[@]}; do
+    echo '      '$missing ${REPO_MISSING[$missing]#*$a_dir} >> $f
+  done
+  echo '    </failure>' >> $f
 fi
 
 echo '  </testcase>' >> $f
 echo '  <testcase name="Repo Additional Packages" time="0">' >> $f 
 
 if [[ ${#REPO_ADDITIONAL[@]} > 0 ]]; then
-for additional in ${!REPO_ADDITIONAL[@]}; do
-  echo '    <error type="'$additional ${REPO_ADDITIONAL[$additional]#*$a_dir}'"/>' >> $f
-done
+  echo '    <failure message="Maven repository archive contains some additional packages">' >> $f
+  for additional in ${!REPO_ADDITIONAL[@]}; do
+    echo '      '$additional ${REPO_ADDITIONAL[$additional]#*$a_dir} >> $f
+  done
+  echo '    </failure>' >> $f
 fi
 
 echo '  </testcase>' >> $f
 echo '  <testcase name="Duplicated Classes" time="0">' >> $f
 
 if [[ ${#DUPLICATED_CLASSES[@]} > 0 ]]; then
-for duplicated in ${!DUPLICATED_CLASSES[@]}; do
-  echo '    <error type="'${DUPLICATED_CLASSES[$duplicated]#*$a_dir}'"/>' >> $f
-done
+  echo '    <failure message="Maven repository archive contains some classes multiple times">' >> $f
+  for duplicated in ${!DUPLICATED_CLASSES[@]}; do
+    echo '      '${DUPLICATED_CLASSES[$duplicated]#*$a_dir} >> $f
+  done
+  echo '    </failure>' >> $f
 fi
 
 echo '  </testcase>' >> $f
