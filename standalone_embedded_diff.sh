@@ -201,7 +201,7 @@ echo '  <testcase name="Repo Missing Packages" time="0">' >> $f
 
 if [[ ${#REPO_MISSING[@]} > 0 ]]; then
 for missing in ${!REPO_MISSING[@]}; do
-  echo '    <error type="'$missing ${REPO_MISSING[$missing]#*$b_dir}'"/>' >> $f
+  echo '    <error type="'$missing ${REPO_MISSING[$missing]#*$a_dir}'"/>' >> $f
 done
 fi
 
@@ -210,7 +210,7 @@ echo '  <testcase name="Repo Additional Packages" time="0">' >> $f
 
 if [[ ${#REPO_ADDITIONAL[@]} > 0 ]]; then
 for additional in ${!REPO_ADDITIONAL[@]}; do
-  echo '    <error type="'$additional ${REPO_ADDITIONAL[$additional]#*$b_dir}'"/>' >> $f
+  echo '    <error type="'$additional ${REPO_ADDITIONAL[$additional]#*$a_dir}'"/>' >> $f
 done
 fi
 
@@ -219,7 +219,7 @@ echo '  <testcase name="Duplicated Classes" time="0">' >> $f
 
 if [[ ${#DUPLICATED_CLASSES[@]} > 0 ]]; then
 for duplicated in ${!DUPLICATED_CLASSES[@]}; do
-  echo '    <error type="'${DUPLICATED_CLASSES[$duplicated]#*$b_dir}'"/>' >> $f
+  echo '    <error type="'${DUPLICATED_CLASSES[$duplicated]#*$a_dir}'"/>' >> $f
 done
 fi
 
