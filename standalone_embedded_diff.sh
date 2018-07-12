@@ -193,7 +193,7 @@ echo '  <testcase name="Different Classes" time="0">' >> $f
 if [[ ${#DIFFERENCES[@]} > 0 ]]; then 
   echo '    <failure message="Archives differ in some packages">' >> $f
   for diff in "${!DIFFERENCES[@]}"; do
-    echo '      '"$diff ${DIFFERENCES[$diff]#*$b_dir}" >> $f
+    echo '      '"$diff'   e.g. '${DIFFERENCES[$diff]#*$b_dir}" >> $f
   done
   echo '    </failure>' >> $f
 fi 
@@ -204,7 +204,7 @@ echo '  <testcase name="Repo Missing Packages" time="0">' >> $f
 if [[ ${#REPO_MISSING[@]} > 0 ]]; then
   echo '    <failure message="Maven repository archive does not contain some packages from standalone archive">' >> $f
   for missing in ${!REPO_MISSING[@]}; do
-    echo '      '$missing ${REPO_MISSING[$missing]#*$a_dir} >> $f
+    echo '      '$missing'   e.g. '${REPO_MISSING[$missing]#*$a_dir} >> $f
   done
   echo '    </failure>' >> $f
 fi
@@ -215,7 +215,7 @@ echo '  <testcase name="Repo Additional Packages" time="0">' >> $f
 if [[ ${#REPO_ADDITIONAL[@]} > 0 ]]; then
   echo '    <failure message="Maven repository archive contains some additional packages">' >> $f
   for additional in ${!REPO_ADDITIONAL[@]}; do
-    echo '      '$additional ${REPO_ADDITIONAL[$additional]#*$a_dir} >> $f
+    echo '      '$additional'   e.g. '${REPO_ADDITIONAL[$additional]#*$a_dir} >> $f
   done
   echo '    </failure>' >> $f
 fi
