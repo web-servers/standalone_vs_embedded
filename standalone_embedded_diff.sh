@@ -193,7 +193,7 @@ echo '  <testcase name="Different Classes" time="0">' >> $f
 if [[ ${#DIFFERENCES[@]} > 0 ]]; then 
   echo '    <failure message="Archives differ in some packages">' >> $f
   for diff in "${!DIFFERENCES[@]}"; do
-    echo '      '"$diff'   e.g. '${DIFFERENCES[$diff]#*$b_dir}" >> $f
+    echo '      '`basename $diff`'   e.g. '${DIFFERENCES[$diff]#*$b_dir} >> $f
   done
   echo '    </failure>' >> $f
 fi 
