@@ -187,13 +187,15 @@ fi
 
 f=$WORKSPACE/TEST-report.xml
 
-echo '<testsuite name="Standalone vs. Embedded" time="0" tests="4" errors="0" skipped="0" failures="'$failures'">' > $f
+echo '<testsuite name="Standalone_vs_Embedded" time="0" tests="4" errors="0" skipped="0" failures="'$failures'">' > $f
 echo '  <testcase name="Different Classes" time="0">' >> $f
 
 if [[ ${#DIFFERENCES[@]} > 0 ]]; then 
+  echo '    <failure message="Archives differ in some packages">' >> $f
   for diff in "${!DIFFERENCES[@]}"; do
-  echo '    <error type="'$diff ${DIFFERENCES[$diff]#*$b_dir}'"/>' >> $f
-done
+    echo '      '"$diff ${DIFFERENCES[$diff]#*$b_dir}" >> $f
+  done
+  echo '    </failure>' >> $f
 fi 
 
 echo '  </testcase>' >> $f
