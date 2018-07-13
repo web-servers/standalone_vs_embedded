@@ -20,6 +20,7 @@ done
 
 WORKSPACE="${WORKSPACE:-/tmp/standalone_embedded_diff}"
 
+# Print help
 if [ "$STANDALONE_ZIP" == "" ] || [ "$MAVEN_ZIP" == "" ]; then
   echo "This script looks for differences between standalone and embedded tomcats."
   echo
@@ -28,6 +29,7 @@ if [ "$STANDALONE_ZIP" == "" ] || [ "$MAVEN_ZIP" == "" ]; then
   exit 1
 fi
 
+# Checks MD5 sums 
 check_hash_sums () {
   local sum_1=`md5sum $1 | awk '{ print $1 }'`
   local sum_2=`md5sum $2 | awk '{ print $1 }'`
@@ -97,14 +99,14 @@ for standalone_jar in $(find $WORKSPACE/standalone -name "*.jar"); do
     repo_class="$a_dir/${class#*$b_dir}"
 
     if [ ! -f $repo_class ]; then
-      REPO_MISSING["$s_jar"]="$repo_class"
+      REPO_MISSING+=(["$standalone_jar"]="$repo_class:")
       continue
     fi    
 
     if check_hash_sums $repo_class $class; then
       REPO_CHECKED_CLASSES+=($repo_class)
     else
-      DIFFERENCES["$standalone_jar"]="$class"
+      DIFFERENCES+=(["$standalone_jar"]="$class:")
     fi
   done
 
@@ -133,7 +135,7 @@ for repo_jar in $(find $WORKSPACE/repo -name "*.jar"); do
     repo_class="$a_dir/${class#*$b_dir}"
 
     if [ -f $repo_class ]; then
-      REPO_ADDITIONAL["$r_jar"]="$repo_class"
+      REPO_ADDITIONAL+=(["$repo_jar"]="$repo_class:")
       continue
     fi
   done
@@ -142,31 +144,7 @@ for repo_jar in $(find $WORKSPACE/repo -name "*.jar"); do
 
 done
 
-echo
-echo DIFFERENCES:
-for diff in "${!DIFFERENCES[@]}"; do
-  printf "\t%-80s e.g. %s\n" $diff ${DIFFERENCES[$diff]#*$b_dir}
-done
-
-echo
-echo REPO MISSING:
-for missing in ${!REPO_MISSING[@]}; do
-  printf "\t%-80s e.g. %s\n"  $missing ${REPO_MISSING[$missing]#*$a_dir}
-done
-
-echo
-echo REPO ADDITIONAL:
-for additional in ${!REPO_ADDITIONAL[@]}; do
-  printf "\t%-80s e.g. %s\n"  $additional ${REPO_ADDITIONAL[$additional]#*$a_dir}
-done
-
-echo
-echo DUPLICATD CLASSES in standalone Tomcat:
-for duplicated in ${!DUPLICATED_CLASSES[@]}; do
- printf "\t%s\n" ${DUPLICATED_CLASSES[$duplicated]#*$a_dir}
-done
-
-# Prepare report
+# Outputs formating (stdout and test report combined)
 failures=0
 
 if [[ ${#DIFFERENCES[@]} > 0 ]]; then
@@ -185,26 +163,54 @@ if [[ ${#DUPLICATED_CLASSES[@]} > 0 ]]; then
   failures=$(($failures + 1))
 fi
 
+# Test report file
 f=$WORKSPACE/TEST-report.xml
 
 echo '<testsuite name="Standalone_vs_Embedded" time="0" tests="4" errors="0" skipped="0" failures="'$failures'">' > $f
 echo '  <testcase name="Different Classes" time="0">' >> $f
 
+# Report differences
+echo
+echo DIFFERENCES:
 if [[ ${#DIFFERENCES[@]} > 0 ]]; then 
   echo '    <failure message="Archives differ in some packages">' >> $f
+
   for diff in "${!DIFFERENCES[@]}"; do
-    echo '      '`basename $diff`'   e.g. '${DIFFERENCES[$diff]#*$b_dir} >> $f
+    different_classes_count=`echo ${DIFFERENCES[$diff]} | tr ":" "\n" | grep -c ".class"`  
+    package_classes_count=`unzip -l $diff | grep -c ".class"`
+    diff_base=`basename $diff`
+
+    if [ "$different_classes_count" == "$package_classes_count" ]; then
+      printf "\t%-60s %s\n" $diff_base "ALL" | tee -a $f
+    else
+      printf "\t%-60s %s\n" $diff_base "$different_classes_count/$package_classes_count" | tee -a $f
+    fi
   done
   echo '    </failure>' >> $f
-fi 
+fi
 
 echo '  </testcase>' >> $f
 echo '  <testcase name="Repo Missing Packages" time="0">' >> $f
 
+# Report missing files in repo
+echo
+echo REPO MISSING:
 if [[ ${#REPO_MISSING[@]} > 0 ]]; then
   echo '    <failure message="Maven repository archive does not contain some packages from standalone archive">' >> $f
   for missing in ${!REPO_MISSING[@]}; do
-    echo '      '$missing'   e.g. '${REPO_MISSING[$missing]#*$a_dir} >> $f
+    different_classes_count=`echo ${REPO_MISSING[$missing]} | tr ":" "\n" | grep -c ".class"`  
+    package_classes_count=`unzip -l $missing | grep -c ".class"`
+    missing_base=`basename $missing`
+
+    if [ "$different_classes_count" == "$package_classes_count" ]; then
+      printf "\t%-60s %s\n"  $missing_base "ALL" | tee -a $f 
+    else
+      printf "\t%-60s %s\n"  $missing_base "$different_classes_count/$package_classes_count" | tee -a $f
+
+      for i in `echo ${REPO_MISSING[$missing]} | tr ":" "\n"`; do
+        echo ${i#*$a_dir} &>> $WORKSPACE/REPO_MISSING_$missing_base.txt
+      done
+    fi
   done
   echo '    </failure>' >> $f
 fi
@@ -212,10 +218,25 @@ fi
 echo '  </testcase>' >> $f
 echo '  <testcase name="Repo Additional Packages" time="0">' >> $f 
 
+# Report additional files in repo
+echo
+echo REPO ADDITIONAL:
 if [[ ${#REPO_ADDITIONAL[@]} > 0 ]]; then
   echo '    <failure message="Maven repository archive contains some additional packages">' >> $f
   for additional in ${!REPO_ADDITIONAL[@]}; do
-    echo '      '$additional'   e.g. '${REPO_ADDITIONAL[$additional]#*$a_dir} >> $f
+    different_classes_count=`echo ${REPO_ADDITIONAL[$additional]} | tr ":" "\n" | grep -c ".class"`
+    package_classes_count=`unzip -l $additional | grep -c ".class"`
+    additional_base=`basename $additional`
+
+    if [ "$different_classes_count" == "$package_classes_count" ]; then
+      printf "\t%-60s %s %s\n" $additional_base "ALL" | tee -a $f
+    else
+      printf "\t%-60s %s\n"  $additional_base "$different_classes_count/$package_classes_count" | tee -a $f
+
+      for i in `echo ${REPO_ADDITIONAL[$additional]} | tr ":" "\n"`; do
+        echo ${i#*$a_dir} &>> $WORKSPACE/REPO_ADDITIONAL_$additional_base.txt
+      done
+    fi
   done
   echo '    </failure>' >> $f
 fi
@@ -223,10 +244,13 @@ fi
 echo '  </testcase>' >> $f
 echo '  <testcase name="Duplicated Classes" time="0">' >> $f
 
+# Report duplicated classes
+echo
+echo DUPLICATD CLASSES in standalone Tomcat:
 if [[ ${#DUPLICATED_CLASSES[@]} > 0 ]]; then
-  echo '    <failure message="Maven repository archive contains some classes multiple times">' >> $f
+  echo '    <failure message="Standalone archive contains some classes multiple times">' >> $f
   for duplicated in ${!DUPLICATED_CLASSES[@]}; do
-    echo '      '${DUPLICATED_CLASSES[$duplicated]#*$a_dir} >> $f
+    printf "\t%s\n" ${DUPLICATED_CLASSES[$duplicated]#*$a_dir} | tee -a $f
   done
   echo '    </failure>' >> $f
 fi
