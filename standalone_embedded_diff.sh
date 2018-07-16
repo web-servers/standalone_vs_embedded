@@ -2,16 +2,17 @@
 
 CHECKED=()
 DUPLICATED_CLASSES=()
-REPO_CHECKED_CLASSES=()
+SUM_NOT_MATCH=()
 
 declare -A DIFFERENCES
 declare -A REPO_MISSING
 declare -A REPO_ADDITIONAL
 
-while getopts d:m:s:w: option
+while getopts b:m:s:w: option
 do
 case "${option}"
 in
+b) BLACKLIST_FILE=${OPTARG};;
 m) MAVEN_ZIP=${OPTARG};;
 s) STANDALONE_ZIP=${OPTARG};;
 w) WORKSPACE=${OPTARG};;
@@ -21,11 +22,11 @@ done
 WORKSPACE="${WORKSPACE:-/tmp/standalone_embedded_diff}"
 
 # Print help
-if [ "$STANDALONE_ZIP" == "" ] || [ "$MAVEN_ZIP" == "" ]; then
+if [ "$STANDALONE_ZIP" == "" ] || [ "$MAVEN_ZIP" == "" ] || [ "$BLACKLIST_FILE" == "" ]; then
   echo "This script looks for differences between standalone and embedded tomcats."
   echo
   echo "Usage:"
-  echo "     sh standalone_embedded_diff.sh -s <tomcat standalone zip> -m <maven repo zip> [-w <workspace_dir>]"
+  echo "     sh standalone_embedded_diff.sh -s <tomcat standalone zip> -m <maven repo zip> -b <blacklist_file> [-w <workspace_dir>]"
   exit 1
 fi
 
@@ -39,6 +40,26 @@ check_hash_sums () {
   else
     return 1
   fi
+}
+
+in_blacklist () {
+  local blacklist_jars=""
+
+  if [ "$2" == "REPO_ADDITIONAL" ]; then
+    blacklist_jars=$(cat $BLACKLIST_FILE | grep "REPO_ADDITIONAL")
+    blacklist_jars=${blacklist_jars#*"REPO_ADDITIONAL:"}
+  else
+    blacklist_jars=$(cat $BLACKLIST_FILE | grep "STANDALONE_ADDITIONAL")
+    blacklist_jars=${blacklist_jars#*"STANDALONE_ADDITIONAL:"}
+  fi
+
+  for jar in `echo $blacklist_jars | tr "," "\n"`; do
+    if [[ "$1" = *"$jar"* ]]; then
+      return 0
+    fi  
+  done
+
+  return 1
 }
 
 MAVEN_REPO_NAME=`unzip -l $MAVEN_ZIP | sed -n 's/.*\(jboss-web-server-.*-maven-repository\)\/$/\1/p'`
@@ -57,6 +78,8 @@ b_dir=$WORKSPACE"/folderB/"
 
 mkdir $a_dir $b_dir
 
+# Check hash sums of files which has coresponding names
+
 # Go through jar files from zip distribution
 for standalone_jar in $(find $WORKSPACE/standalone -name "*.jar"); do
   s_jar=`basename $standalone_jar`
@@ -64,19 +87,14 @@ for standalone_jar in $(find $WORKSPACE/standalone -name "*.jar"); do
   repo_jar=""
 
   for repo_jar in $(find $WORKSPACE/repo -name "*$pattern*.jar"); do
-    if [[ ! `basename $repo_jar` = *"source"* ]]; then
+    r_jar=`basename $repo_jar`
+    if [[ ! $r_jar = *"source"* && ! $r_jar = *"embed"* ]]; then
        # Check hash sums
-       if check_hash_sums $standalone_jar $repo_jar ; then
-          CHECKED+=($standalone_jar)
-          CHECKED+=($repo_jar)
+       if ! check_hash_sums $standalone_jar $repo_jar ; then
+          SUM_NOT_MATCH+=($s_jar)
        fi
     fi
   done
-done
-
-# Removes already checked jars
-for checked in "${CHECKED[@]}"; do
-  rm $checked
 done
 
 # Clean up in temporary dirs
@@ -84,13 +102,18 @@ rm -rf $a_dir/* $b_dir/*
 
 # Unzips all repo jars
 for repo_jar in $(find $WORKSPACE/repo -name "*.jar"); do
-  if [[ ! `basename $repo_jar` = *"source"* ]]; then
+  if ! in_blacklist $repo_jar "REPO_ADDITIONAL"; then
     unzip -o -qq -d $a_dir $repo_jar "*.class" &> /dev/null
   fi
 done
 
 # Go through standalone jars and check all classes
 for standalone_jar in $(find $WORKSPACE/standalone -name "*.jar"); do
+
+  if in_blacklist $standalone_jar "STANDALONE_ADDITIONAL"; then
+    continue
+  fi
+
   unzip -o -qq -d $b_dir $standalone_jar "*.class" &> /dev/null
 
   s_jar=$(basename $standalone_jar)
@@ -103,9 +126,7 @@ for standalone_jar in $(find $WORKSPACE/standalone -name "*.jar"); do
       continue
     fi    
 
-    if check_hash_sums $repo_class $class; then
-      REPO_CHECKED_CLASSES+=($repo_class)
-    else
+    if ! check_hash_sums $repo_class $class; then
       DIFFERENCES+=(["$standalone_jar"]="$class:")
     fi
   done
@@ -114,35 +135,44 @@ for standalone_jar in $(find $WORKSPACE/standalone -name "*.jar"); do
   rm -rf $b_dir/*
 done
 
-# Cleanup checked classes
-for checked in "${REPO_CHECKED_CLASSES[@]}"; do
-  if [ -f $checked ]; then
-    rm "$checked"
-  else
-    DUPLICATED_CLASSES+=($checked)
+# Clean up in temporary dirs
+rm -rf $a_dir/* $b_dir/*
+
+# Unzips all standalone jars
+for standalone_jar in $(find $WORKSPACE/standalone -name "*.jar"); do
+  if ! in_blacklist $standalone_jar "STANDALONE_ADDITIONAL"; then
+    unzip -o -qq -d $a_dir $standalone_jar "*.class" &> /dev/null
   fi
 done
 
-rm -rf $b_dir/*
-
-# Look for repo packages which contain additional classes (currently in a_dir)
+# Go through repo jars and check all classes
 for repo_jar in $(find $WORKSPACE/repo -name "*.jar"); do
+  if in_blacklist $repo_jar "REPO_ADDITIONAL"; then
+    continue
+  fi
+
   unzip -o -qq -d $b_dir $repo_jar "*.class" &> /dev/null
 
   r_jar=$(basename $repo_jar)
 
   for class in $(find $b_dir -name "*.class"); do
-    repo_class="$a_dir/${class#*$b_dir}"
+    standalone_class="$a_dir/${class#*$b_dir}"
 
-    if [ -f $repo_class ]; then
-      REPO_ADDITIONAL+=(["$repo_jar"]="$repo_class:")
+    if [ ! -f $standalone_class ]; then
+      REPO_ADDITIONAL+=(["$repo_jar"]="$standalone_class:")
       continue
+    fi    
+
+    if ! check_hash_sums $standalone_class $class; then
+      DIFFERENCES+=(["$repo_jar"]="$class:")
     fi
   done
 
+  # Clean checked package
   rm -rf $b_dir/*
-
 done
+
+rm -rf $a_dir $b_dir
 
 # Outputs formating (stdout and test report combined)
 failures=0
@@ -159,7 +189,7 @@ if [[ ${#REPO_ADDITIONAL[@]} > 0 ]]; then
   failures=$(($failures + 1))
 fi
 
-if [[ ${#DUPLICATED_CLASSES[@]} > 0 ]]; then
+if [[ ${#SUM_NOT_MATCH[@]} > 0 ]]; then
   failures=$(($failures + 1))
 fi
 
@@ -184,6 +214,10 @@ if [[ ${#DIFFERENCES[@]} > 0 ]]; then
       printf "\t%-60s %s\n" $diff_base "ALL" | tee -a $f
     else
       printf "\t%-60s %s\n" $diff_base "$different_classes_count/$package_classes_count" | tee -a $f
+
+      for i in `echo ${DIFFERENCES[$diff]} | tr ":" "\n"`; do
+        echo ${i#*$a_dir} &>> $WORKSPACE/DIFFERENCES_$diff_base.txt
+      done
     fi
   done
   echo '    </failure>' >> $f
@@ -244,13 +278,13 @@ fi
 echo '  </testcase>' >> $f
 echo '  <testcase name="Duplicated Classes" time="0">' >> $f
 
-# Report duplicated classes
+# Report libraries which sum doesn't match
 echo
-echo DUPLICATD CLASSES in standalone Tomcat:
-if [[ ${#DUPLICATED_CLASSES[@]} > 0 ]]; then
-  echo '    <failure message="Standalone archive contains some classes multiple times">' >> $f
-  for duplicated in ${!DUPLICATED_CLASSES[@]}; do
-    printf "\t%s\n" ${DUPLICATED_CLASSES[$duplicated]#*$a_dir} | tee -a $f
+echo "Libraries which sum doesn't match"
+if [[ ${#SUM_NOT_MATCH[@]} > 0 ]]; then
+  echo '    <failure message="Some libraries have different hash sum than coresponding libraries. ">' >> $f
+  for class in ${!SUM_NOT_MATCH[@]}; do
+    printf "\t%s\n" ${SUM_NOT_MATCH[$class]} | tee -a $f
   done
   echo '    </failure>' >> $f
 fi
@@ -260,3 +294,5 @@ echo '</testsuite>' >> $f
 
 echo 
 echo Report stored to $f
+
+rm -rf $WORKSPACE/repo $WORKSPACE/standalone
