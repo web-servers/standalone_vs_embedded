@@ -65,7 +65,7 @@ in_blacklist () {
 MAVEN_REPO_NAME=`unzip -l $MAVEN_ZIP | sed -n 's/.*\(jboss-web-server-.*-maven-repository\)\/$/\1/p'`
 
 mkdir -p $WORKSPACE
-rm -rf $WORKSPACE/*
+rm -rf $WORKSPACE/repo $WORKSPACE/standalone $WORKSPACE/folderA $WORKSPACE/folderB
 
 mkdir $WORKSPACE/standalone $WORKSPACE/repo
 
