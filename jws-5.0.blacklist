@@ -1,2 +1,2 @@
 REPO_ADDITIONAL: cxf, hibernate
-STANDALONE_ADDITIONAL: mod_cluster,tomcat-vault, jboss-logging, catalina-storeconfig, catalina-ha, catalina-ant, catalina-tribes, commons-daemon
+STANDALONE_ADDITIONAL: mod_cluster,tomcat-vault
