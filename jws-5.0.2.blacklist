@@ -1,0 +1,2 @@
+REPO_ADDITIONAL: cxf, hibernate, antlr, classmate, geronimo, jandex, javassist, dom4j
+STANDALONE_ADDITIONAL: mod_cluster, catalina-ha, catalina-ant, catalina-tribes, catalina-storeconfig, commons-daemon
