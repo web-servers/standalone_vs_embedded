@@ -2,7 +2,6 @@
 
 CHECKED=()
 DUPLICATED_CLASSES=()
-SUM_NOT_MATCH=()
 
 declare -A DIFFERENCES
 declare -A REPO_MISSING
@@ -77,25 +76,6 @@ a_dir=$WORKSPACE"/folderA/"
 b_dir=$WORKSPACE"/folderB/"
 
 mkdir $a_dir $b_dir
-
-# Check hash sums of files which has coresponding names
-
-# Go through jar files from zip distribution
-for standalone_jar in $(find $WORKSPACE/standalone -name "*.jar"); do
-  s_jar=`basename $standalone_jar`
-  pattern=${s_jar%.*}
-  repo_jar=""
-
-  for repo_jar in $(find $WORKSPACE/repo -name "*$pattern*.jar"); do
-    r_jar=`basename $repo_jar`
-    if [[ ! $r_jar = *"source"* && ! $r_jar = *"embed"* ]]; then
-       # Check hash sums
-       if ! check_hash_sums $standalone_jar $repo_jar ; then
-          SUM_NOT_MATCH+=($s_jar)
-       fi
-    fi
-  done
-done
 
 # Clean up in temporary dirs
 rm -rf $a_dir/* $b_dir/*
@@ -189,14 +169,10 @@ if [[ ${#REPO_ADDITIONAL[@]} > 0 ]]; then
   failures=$(($failures + 1))
 fi
 
-if [[ ${#SUM_NOT_MATCH[@]} > 0 ]]; then
-  failures=$(($failures + 1))
-fi
-
 # Test report file
 f=$WORKSPACE/TEST-report.xml
 
-echo '<testsuite name="Standalone_vs_Embedded" time="0" tests="4" errors="0" skipped="0" failures="'$failures'">' > $f
+echo '<testsuite name="Standalone_vs_Embedded" time="0" tests="3" errors="0" skipped="0" failures="'$failures'">' > $f
 echo '  <testcase name="Different Classes" time="0">' >> $f
 
 # Report differences
@@ -271,20 +247,6 @@ if [[ ${#REPO_ADDITIONAL[@]} > 0 ]]; then
         echo ${i#*$a_dir} &>> $WORKSPACE/REPO_ADDITIONAL_$additional_base.txt
       done
     fi
-  done
-  echo '    </failure>' >> $f
-fi
-
-echo '  </testcase>' >> $f
-echo '  <testcase name="Duplicated Classes" time="0">' >> $f
-
-# Report libraries which sum doesn't match
-echo
-echo "Libraries which sum doesn't match"
-if [[ ${#SUM_NOT_MATCH[@]} > 0 ]]; then
-  echo '    <failure message="Some libraries have different hash sum than coresponding libraries. ">' >> $f
-  for class in ${!SUM_NOT_MATCH[@]}; do
-    printf "\t%s\n" ${SUM_NOT_MATCH[$class]} | tee -a $f
   done
   echo '    </failure>' >> $f
 fi
