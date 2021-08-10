@@ -99,6 +99,10 @@ for standalone_jar in $(find $WORKSPACE/standalone -name "*.jar"); do
   s_jar=$(basename $standalone_jar)
 
   for class in $(find $b_dir -name "*.class"); do
+    if [ $(basename $class) == "module-info.class" ]; then
+      continue
+    fi
+
     repo_class="$a_dir/${class#*$b_dir}"
 
     if [ ! -f $repo_class ]; then
@@ -136,6 +140,10 @@ for repo_jar in $(find $WORKSPACE/repo -name "*.jar"); do
   r_jar=$(basename $repo_jar)
 
   for class in $(find $b_dir -name "*.class"); do
+    if [ $(basename $class) == "module-info.class" ]; then
+      continue
+    fi
+
     standalone_class="$a_dir/${class#*$b_dir}"
 
     if [ ! -f $standalone_class ]; then
