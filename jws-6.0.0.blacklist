@@ -1,2 +1,2 @@
 REPO_ADDITIONAL:
-STANDALONE_ADDITIONAL: mod_cluster, catalina-ha, catalina-ant, catalina-tribes, catalina-storeconfig, catalina-ssi, commons-daemon, jakartaee-migration, tomcat-dbcp, tomcat-jdbc
+STANDALONE_ADDITIONAL: mod_cluster, catalina-ha, catalina-ant, catalina-tribes, catalina-storeconfig, catalina-ssi, commons-daemon, jakartaee-migration, tomcat-dbcp, tomcat-jdbc, jboss-logging
